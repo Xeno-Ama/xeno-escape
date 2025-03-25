@@ -2,11 +2,11 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>Xeno Escape</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/phaser/3.55.2/phaser.min.js"></script>
     <style>
-        body { margin: 0; }
+        body { margin: 0; overflow: hidden; }
         canvas { display: block; }
     </style>
 </head>
@@ -15,98 +15,122 @@
 <script>
     let config = {
         type: Phaser.AUTO,
-        width: 800,
-        height: 600,
+        width: window.innerWidth,
+        height: window.innerHeight,
         physics: { default: 'arcade', arcade: { gravity: { y: 0 } } },
         scene: { preload, create, update }
     };
 
     let player, xeno, cursors, key, exitZone, hasKey = false, gameOver = false, gameStarted = false;
-    let startButton;
+    let startButton, restartButton, exitDoor;
+    let moveLeft, moveRight, moveUp, moveDown;
 
     let game = new Phaser.Game(config);
 
     function preload() {
-        this.load.image('background', 'https://i.imgur.com/Vz1lJuP.png'); // Background image
-        this.load.image('player', 'https://i.imgur.com/WD4qqeA.png'); // Human player sprite
-        this.load.image('xeno', 'https://i.imgur.com/ByErHWg.png'); // Xeno sprite
-        this.load.image('key', 'https://i.imgur.com/9O6wVf2.png'); // Key sprite
-	this.load.image('door', 'https://i.imgur.com/x6IwtVn.png'); // Exit door sprite
-	this.load.image('button', 'https://i.imgur.com/x5024YT.png'); // Start button image
-
+        this.load.image('background', 'https://i.imgur.com/Vz1lJuP.png');
+        this.load.image('player', 'https://i.imgur.com/WD4qqeA.png');
+        this.load.image('xeno', 'https://i.imgur.com/ByErHWg.png');
+        this.load.image('key', 'https://i.imgur.com/9O6wVf2.png');
+        this.load.image('door', 'https://i.imgur.com/x6IwtVn.png');
+        this.load.image('button', 'https://i.imgur.com/x5024YT.png');
+        this.load.image('restart', 'https://i.imgur.com/xTWO6ha.png');
+        this.load.image('control', 'https://i.imgur.com/ShlmCpl.png'); // On-screen control button
     }
 
     function create() {
-        this.add.image(400, 300, 'background');
+        this.add.image(config.width / 2, config.height / 2, 'background')
+            .setScale(Math.max(config.width / 800, config.height / 600));
 
-
-        // Create the start button
-        startButton = this.add.image(400, 300, 'button').setInteractive();
+        startButton = this.add.image(config.width / 2, config.height / 2, 'button').setInteractive();
         startButton.setScale(0.5);
         startButton.on('pointerdown', startGame, this);
 
-        player = this.physics.add.sprite(100, 300, 'player');
+        player = this.physics.add.sprite(100, config.height / 2, 'player');
         player.setScale(0.2);
         player.setCollideWorldBounds(true);
         player.body.setSize(player.width * 0.5, player.height * 0.5);
         player.setVisible(false);
 
-        xeno = this.physics.add.sprite(700, 300, 'xeno');
+        xeno = this.physics.add.sprite(config.width - 100, config.height / 2, 'xeno');
         xeno.setScale(0.2);
         xeno.setCollideWorldBounds(true);
         xeno.body.setSize(xeno.width * 0.5, xeno.height * 0.5);
         xeno.setVisible(false);
 
-        // Create the key in a random position
-        key = this.physics.add.sprite(Phaser.Math.Between(100, 700), Phaser.Math.Between(100, 500), 'key');
+        key = this.physics.add.sprite(Phaser.Math.Between(100, config.width - 100), Phaser.Math.Between(100, config.height - 100), 'key');
         key.setScale(0.2);
         key.setVisible(false);
 
-	// Create the exit door sprite before the exit zone
-exitDoor = this.add.image(750, 300, 'door');
-exitDoor.setScale(0.5);
-exitDoor.setVisible(false); // Initially hidden
+        exitDoor = this.add.image(config.width - 50, config.height / 2, 'door');
+        exitDoor.setScale(0.5);
+        exitDoor.setVisible(false);
 
-        // Create an invisible exit zone
-        exitZone = this.physics.add.sprite(750, 300, null).setOrigin(0.5);
-        exitZone.setSize(50, 600);
+        exitZone = this.physics.add.sprite(config.width - 50, config.height / 2, null).setOrigin(0.5);
+        exitZone.setSize(50, config.height);
         exitZone.setVisible(false);
-        
+
         this.physics.add.overlap(player, key, collectKey, null, this);
         this.physics.add.overlap(player, exitZone, playerWins, null, this);
 
         cursors = this.input.keyboard.createCursorKeys();
 
         this.physics.add.collider(player, xeno, gameOverHandler, null, this);
+
+        if (!this.sys.game.device.os.desktop) {
+            createMobileControls(this);
+        }
+    }
+
+    function createMobileControls(scene) {
+        moveLeft = scene.add.image(70, config.height - 100, 'control').setInteractive().setAlpha(0.5);
+        moveLeft.setScale(0.5);
+        moveLeft.on('pointerdown', () => player.setVelocityX(-200));
+        moveLeft.on('pointerup', () => player.setVelocityX(0));
+
+        moveRight = scene.add.image(170, config.height - 100, 'control').setInteractive().setAlpha(0.5);
+        moveRight.setScale(0.5);
+        moveRight.on('pointerdown', () => player.setVelocityX(200));
+        moveRight.on('pointerup', () => player.setVelocityX(0));
+
+        moveUp = scene.add.image(config.width - 150, config.height - 150, 'control').setInteractive().setAlpha(0.5);
+        moveUp.setScale(0.5);
+        moveUp.on('pointerdown', () => player.setVelocityY(-200));
+        moveUp.on('pointerup', () => player.setVelocityY(0));
+
+        moveDown = scene.add.image(config.width - 150, config.height - 50, 'control').setInteractive().setAlpha(0.5);
+        moveDown.setScale(0.5);
+        moveDown.on('pointerdown', () => player.setVelocityY(200));
+        moveDown.on('pointerup', () => player.setVelocityY(0));
     }
 
     function startGame() {
         gameStarted = true;
-    startButton.destroy(); // Remove the start button
-
-    player.setVisible(true);
-    xeno.setVisible(true);
-    key.setVisible(true);
-    exitZone.setVisible(false);
-    exitDoor.setVisible(true); // Make the door visible when the game starts
-
+        startButton.destroy();
+        player.setVisible(true);
+        xeno.setVisible(true);
+        key.setVisible(true);
+        exitZone.setVisible(true);
+        exitDoor.setVisible(true);
     }
 
     function update() {
         if (gameOver || !gameStarted) return;
 
-        player.setVelocity(0);
+        if (this.sys.game.device.os.desktop) {
+            player.setVelocity(0);
 
-        if (cursors.left.isDown) {
-            player.setVelocityX(-200);
-        } else if (cursors.right.isDown) {
-            player.setVelocityX(200);
-        }
+            if (cursors.left.isDown) {
+                player.setVelocityX(-200);
+            } else if (cursors.right.isDown) {
+                player.setVelocityX(200);
+            }
 
-        if (cursors.up.isDown) {
-            player.setVelocityY(-200);
-        } else if (cursors.down.isDown) {
-            player.setVelocityY(200);
+            if (cursors.up.isDown) {
+                player.setVelocityY(-200);
+            } else if (cursors.down.isDown) {
+                player.setVelocityY(200);
+            }
         }
 
         moveXeno();
@@ -116,28 +140,41 @@ exitDoor.setVisible(false); // Initially hidden
         let dx = player.x - xeno.x;
         let dy = player.y - xeno.y;
         let angle = Math.atan2(dy, dx);
-        xeno.setVelocity(Math.cos(angle) * 175, Math.sin(angle) * 175); // Increased speed from 100 to 150
+        xeno.setVelocity(Math.cos(angle) * 175, Math.sin(angle) * 175);
+    }
+
+    function showRestartButton(scene) {
+        restartButton = scene.add.image(config.width / 2, config.height / 2 + 100, 'restart').setInteractive();
+        restartButton.setScale(0.5);
+        restartButton.on('pointerdown', () => {
+            hasKey = false;
+            gameOver = false;
+            gameStarted = false;
+            scene.scene.restart();
+        });
     }
 
     function gameOverHandler() {
         gameOver = true;
-        this.add.text(300, 250, 'GAME OVER', { fontSize: '48px', fill: '#ff0000' });
+        this.add.text(config.width / 2 - 100, config.height / 2 - 50, 'GAME OVER', { fontSize: '48px', fill: '#ff0000' });
         this.physics.pause();
+        showRestartButton(this);
     }
 
     function collectKey(player, key) {
-        key.destroy(); // Remove the key from the game
+        key.destroy();
         hasKey = true;
         this.add.text(20, 20, 'Key Collected!', { fontSize: '24px', fill: '#00ff00' });
     }
 
     function playerWins() {
         if (hasKey) {
-            this.add.text(300, 250, 'YOU WIN!', { fontSize: '48px', fill: '#00ff00' });
+            this.add.text(config.width / 2 - 100, config.height / 2 - 50, 'YOU WIN!', { fontSize: '48px', fill: '#00ff00' });
             this.physics.pause();
             gameOver = true;
+            showRestartButton(this);
         } else {
-            this.add.text(300, 250, 'Find the Key First!', { fontSize: '24px', fill: '#ffff00' });
+            this.add.text(config.width / 2 - 100, config.height / 2 + 50, 'Find the Key First!', { fontSize: '24px', fill: '#ffff00' });
         }
     }
 </script>
